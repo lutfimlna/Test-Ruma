@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="css/custom.css" rel="stylesheet" media="screen">
+    <script language="JavaScript" type="text/javascript" src="js/jquery-1.11.1.min.js"></script>
+    <script language="JavaScript" type="text/javascript" src="js/bootstrap-3.1.1.min.js"></script>
+    <script language="JavaScript" type="text/javascript" src="js/jquery.validationEngine-2.6.2.js"></script>
+    <script language="JavaScript" type="text/javascript" src="js/jquery.validationEngine-en.js"></script>
+    <link href="css/validationEngine.jquery.css" rel="stylesheet" media="screen">
+    <script language="JavaScript" type="text/javascript" src="js/jquery.dataTables-1.10.0.min.js"></script>
+    <link href="css/jquery.dataTables.min.css" rel="stylesheet" media="screen">
+
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-default navbar-fixed-top">
+      <div class="container">
+          <a class="navbar-brand" href="#">RUMA'S PROJECT</a>
+      </div>
+    </nav>
+
+    <div class="container">
+      <h1>MY TODO LIST</h1>
+      <div id="list">
+        <table id="table" class="display"></table>
+        <div class="form-group">
+          <button type="submit" class="submit btn btn-primary" id="add">Tambah Agenda</button>
+        </div>
+      </div>
+
+      <form class="form-horizontal" role="form" id="formID" name="formID">
+        <div class="form-group">
+          <label for="seq" class="col-sm-2 control-label">Nomor Agenda</label>
+          <div class="col-sm-6">
+            <p class="form-control-static" id="seq"></p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="judul" class="col-sm-2 control-label">Judul</label>
+          <div class="col-sm-6">
+            <input type="text" class="form-control validate[required]" id="judul" placeholder="Judul Agenda">
+              </div>
+            </div>
+        <div class="form-group">
+          <label for="tanggalmulai" class="col-sm-2 control-label">Tanggal Mulai</label>
+          <div class="col-sm-6">
+            <input type="date" class="form-control validate[required]" id="tanggalmulai" name="tanggalmulai">
+              </div>
+        </div>
+        <div class="form-group">
+          <label for="tanggalselesai" class="col-sm-2 control-label">Tanggal Selesai</label>
+          <div class="col-sm-6">
+            <input type="date" class="form-control validate[required]" id="tanggalselesai" name="tanggalselesai">
+              </div>
+        </div>
+        <div class="form-group">
+          <label for="prioritas" class="col-sm-2 control-label">Prioritas</label>
+          <div class="col-sm-6">
+            <div class="radio">
+              <label>
+                <input type="radio" class="validate[required]" name="prioritas" value="low">
+               Low
+              </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" class="validate[required]" name="prioritas" value="medium">
+                Medium
+              </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" class="validate[required]" name="prioritas" value="high">
+                High
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="deskripsi" class="col-sm-2 control-label">Deskripsi</label>
+          <div class="col-sm-6">
+            <textarea id="deskripsi" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="status" class="col-sm-2 control-label">Status Pengerjaan</label>
+          <div class="col-sm-6">
+            <div class="radio">
+              <label>
+                <input type="radio" class="validate[required]" name="status" value="Sudah Dikerjakan">
+               Sudah
+              </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" class="validate[required]" name="status" value="Belum Dikerjakan">
+                Belum
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-2 col-sm-8">
+            <button class="btn btn-default" id="batal">Batal</button>
+            <button type="submit" class="submit btn btn-primary" id="simpan">Simpan</button>
+          </div>
+        </div>
+      </form>
+  </div> <!-- /container -->
+  </body>
+  <script>
+    var editor; // use a global for the submit and return data rendering in the examples
+    var formId="id"; //Untuk membuat key json
+    var oTable; //variabel untuk menampilkan data tabel
+    var validateDate = true; //Untuk validasi tanggal mulai dan tanggal selesai
+    $(document).ready(function(){
+      $('#formID').hide(); //Ketika page dimunculkan form dihilangkan terlebih dahulu
+      var seq=createTable();//Menampilkan data tabel dengan return sequence dari tabel tersebut.
+      $('#seq').text(seq);
+
+      //Melakukan validasi untuk mengetahui apakah browser support untuk menyimpan di local storage
+      $("#formID").validationEngine('attach',
+      {
+        onValidationComplete: function(form, status){
+          if (!verifyLocalStorageCapability) {
+            alert("Local Storage is not supported.");
+            return;
+          }
+          if (status) {
+              save();
+              location.reload(true);
+          }
+        }
+      });
+    });
+
+    //Fungsi untuk membuat list atau tabel
+    function createTable() {
+      var dataSet=[]; //Membuat array
+      var skip=0;
+      var seq=0;
+      var index=0;
+      var icons  ='<span class="glyphicon glyphicon-edit">&nbsp;</span><span class="glyphicon glyphicon-remove"></span>'; //Membuat icon untuk edit dan delete
+
+      while ( skip<2 ) {
+        var key=formId+"_"+index;
+        var json=localStorage.getItem(key);
+        if ( json==null || json=="null" || json=="[object Object]" ) {
+          index=index+1;
+          skip=skip+1;
+          continue;
+        }
+
+        var object=null;
+        object=JSON.parse(json);
+        var deskripsi= object.deskripsi;
+        deskripsi=deskripsi.replace(/\n/g, "<br>"); //mengubah \n menjadi <br>
+        dataSet[seq]=[index, icons, object.judul, object.tanggalmulai, object.tanggalselesai, object.prioritas, deskripsi, object.status];
+        index=index+1;
+        seq=seq+1;
+    }
+
+    //Menampilkan judul dari setiap kolom yang ada pada tabel dan menampilkan data yang telah disimpan di local storage
+    oTable=$('#table').dataTable({
+      "data": dataSet,
+      "columns": [
+      { "title": "Nomor", "class": "center" },
+      { "title": "Edit", "class": "center" },
+      { "title": "Judul Agenda", "class": "center" },
+      { "title": "Tanggal Mulai", "class": "center" },
+      { "title": "Tanggal Selesai", "class": "center" },
+      { "title": "Prioritas" },
+      { "title": "Deskripsi" },
+      { "title": "Status Pengerjaan" }
+      ]
+    });
+
+    //Melakukan fungsi delete ketika pengguna menekan icon remove
+    $('#table tbody').on( 'click', '.glyphicon-remove', function () {
+        var row = $(this).parents('tr');
+        var seq = row.children()[0].innerHTML; //Mengambil index sebagai key untuk menghapus
+        if(window.confirm('Apakah Anda yakin ingin menghapus agenda ini?')){
+          var key=formId+"_"+seq;
+          localStorage.removeItem(key);
+          restoreItems();
+          location.reload(true);
+        }
+    } );
+
+    //Menampilkan form ketika menekan tombol tambah agenda
+    $('#add').on( 'click', function () {
+        $('#list').hide();
+        $('#seq').text(seq);
+        $('#formID').show();
+    } );
+
+    //Membatalkan pengisian form untuk menambah agenda
+    $('#batal').on( 'click', function () {
+        location.reload(true);
+    } );
+
+    //Melakukan editing ketika pengguna menekan icon edit
+    $('#table tbody').on( 'click', '.glyphicon-edit', function () {
+        $('#list').hide(); //Menghilangkan list.
+        var rows = $(this).parents('tr').children();
+        $('#seq').text(rows[0].innerHTML);
+        $('#judul').val(rows[2].innerHTML);
+        $('#tanggalmulai').val(rows[3].innerHTML);
+        $('#tanggalselesai').val(rows[4].innerHTML);
+        $('input[name="prioritas"]').val([rows[5].innerHTML]);
+        $('#deskripsi').val((rows[6].innerHTML).replace(/(<br>)/g, "\n"));
+        $('input[name="status"]').val([rows[7].innerHTML]);
+        $('#formID').show();
+    } );
+
+    return seq;
+  }
+
+  //Membuat fungsi untuk menyimpan agenda
+  function save() {
+    var seq = $('#seq').text();
+
+    if ( isNaN(seq) ) { seq=0; }
+    var key=formId+"_"+seq;
+    var object={
+      "judul":$("#judul").val(),
+      "tanggalmulai": $("#tanggalmulai").val(),
+      "tanggalselesai": $("#tanggalselesai").val(),
+      "prioritas":$('input[name="prioritas"]:checked').val(),
+      "deskripsi": $("#deskripsi").val(),
+      "status":$('input[name="status"]:checked').val()
+    }
+    localStorage.setItem(key, JSON.stringify(object));
+    alert("Agenda berhasil disimpan!")
+  }
+
+  //Membuat fungsi untuk menampilkan agenda yang telah dibuat
+  function restoreItems() {
+    var skip=0;
+    var index=1;
+    var previous=JSON.parse(localStorage.getItem(formId+"_0"));
+    var prevIndex=0;
+    while ( skip<2 ) {
+      var key=formId+"_"+index;
+      var object=JSON.parse(localStorage.getItem(key));
+      if ( previous==null && object==null ) {
+        skip=skip+1;
+        prevIndex=index;
+        index=index+1;
+        continue;
+      }
+      if ( previous==null && object!=null ) {
+        localStorage.setItem(formId+"_"+prevIndex, JSON.stringify(object));
+        localStorage.setItem(key, null);
+        prevIndex=index;
+        index=index+1;
+        continue;
+      }
+      previous=object;
+      prevIndex=index;
+      index=index+1;
+    }
+  };
+
+  //Fungsi untuk melakukan pengecekan terhadap local storage yang ada di browser
+  function verifyLocalStorageCapability() {
+    if (!window.localStorage) {
+        return false;
+    }
+    return true;
+  }
+
+  </script>
+</html>
